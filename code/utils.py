@@ -3,6 +3,7 @@
 
 from __future__ import print_function
 import logging
+import sys
 
 logging.basicConfig(
     format='%(asctime)s : %(levelname)s : %(message)s', level=logging.DEBUG)
@@ -10,7 +11,7 @@ logging.basicConfig(
 import numpy as np
 from sklearn.cross_validation import train_test_split
 
-def load_data(filepath='IT.txt', nb_instances=1000):
+def load_data(filepath, nb_instances=sys.maxint):
     """ Returns a tuple of tokens and lemmas
         from the entire data file.
     """
@@ -18,18 +19,22 @@ def load_data(filepath='IT.txt', nb_instances=1000):
     tokens, lemmas = [], []
 
     for line in open(filepath):
+
         line = line.strip()
         if line:
-            comps = line.split('\t')
-            token, lemma = comps[1:3]
-            tokens.append(token.strip().lower())
-            lemmas.append(lemma.strip().lower())
-            #print(token, lemma)
+            try:
+                comps = line.split()
+                token, lemma = comps[1:3]
+                tokens.append(token.strip().lower())
+                lemmas.append(lemma.strip().lower())
+                #print(token, lemma)
 
-            # cutoff for development:
-            nb_instances -= 1
-            if nb_instances <= 0:
-                break
+                # cutoff for development:
+                nb_instances -= 1
+                if nb_instances <= 0:
+                    break
+            except ValueError:
+                pass
 
     # sanity check
     assert len(tokens) == len(lemmas)
@@ -42,7 +47,7 @@ def max_len(items):
     """ Return length of longest item in items"""
     return len(max(items, key=len))
 
-def train_dev_test_split(tokens, lemmas, test_size=.1, dev_size=.1):
+def train_dev_test_split(tokens, lemmas, test_size=.3, dev_size=.15):
     """
     Return random train-dev-test split.
     No sequential information included.
@@ -71,7 +76,7 @@ def train_dev_test_split(tokens, lemmas, test_size=.1, dev_size=.1):
            test_tokens, test_lemmas
 
 def get_char_vector_dict(tokens):
-    char_vocab = tuple({ch for tok in tokens+['%', '$'] for ch in tok+" "})
+    char_vocab = tuple({ch for tok in tokens+['$'] for ch in tok+" "})
     char_vector_dict, char_idx = {}, {}
     filler = np.zeros(len(char_vocab), dtype='float32')
 
@@ -99,7 +104,7 @@ def vectorize_out_sequences(items, out_char_vector_dict,
                            max_out_len=15):
     X_out = []
     for item in items:
-        x = vectorize_in_charseq(seq=item,
+        x = vectorize_out_charseq(seq=item,
                                  char_vector_dict=out_char_vector_dict,
                                  std_seq_len=max_out_len)
         X_out.append(x)
@@ -117,7 +122,7 @@ def vectorize_in_charseq(seq, char_vector_dict, std_seq_len):
         seq = '$'+seq
 
     seq_X = []
-    filler = np.zeros(len(char_vector_dict), dtype="int8")
+    filler = np.zeros(len(char_vector_dict), dtype='float32')
     for char in seq:
         try:
             seq_X.append(char_vector_dict[char])
@@ -132,7 +137,7 @@ def vectorize_out_charseq(seq, char_vector_dict, std_seq_len):
     while len(seq) < std_seq_len:
         seq += '$'
     seq_X = []
-    filler = np.zeros(len(char_vector_dict), dtype="int8")
+    filler = np.zeros(len(char_vector_dict), dtype='float32')
     for char in seq:
         try:
             seq_X.append(char_vector_dict[char])

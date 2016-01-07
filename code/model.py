@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from keras.models import Graph
-from keras.layers.recurrent import LSTM
+from keras.layers.recurrent import LSTM, GRU
 from keras.layers.core import Dense, TimeDistributedDense, Dropout, Activation, RepeatVector
 from keras.layers.convolutional import Convolution1D
 from keras.optimizers import Adam
@@ -10,26 +10,31 @@ from keras.optimizers import Adam
 def build_model(max_in_len, in_char_vector_dict,
                 nb_filters, filter_length,
                 nb_encoding_layers, nb_dense_dims,
-                max_out_len, out_char_vector_dict):
+                max_out_len, out_char_vector_dict,
+                include_conv):
     m = Graph()
 
     # add input layer:
     m.add_input(name='in', input_shape=(max_in_len, len(in_char_vector_dict)))
 
-    # add convolutional layer:
-    m.add_node(Convolution1D(input_dim=len(in_char_vector_dict),
-                                    nb_filter=nb_filters,
-                                    filter_length=filter_length,
-                                    activation='tanh',
-                                    border_mode="valid",
-                                    subsample_length=1), 
-                           name='conv', input='in')
+    if include_conv:
+        # add convolutional layer:
+        m.add_node(Convolution1D(input_dim=len(in_char_vector_dict),
+                                        nb_filter=nb_filters,
+                                        filter_length=filter_length,
+                                        activation='tanh',
+                                        border_mode="valid",
+                                        subsample_length=1), 
+                               name='conv', input='in')
 
     # add recurrent layers:
     return_seqs = True
     for i in range(nb_encoding_layers):
         if i == 0:
-            input_name = 'conv'
+            if include_conv:
+                input_name = 'conv'
+            else:
+                input_name = 'in'
         else:
             input_name = 'encoder_dropout_'+str(i)
 
@@ -53,7 +58,7 @@ def build_model(max_in_len, in_char_vector_dict,
           name='encoder_repeat',
           input='final_encoder')
 
-    # 2nd, single lstm to generate output sequence:
+    # 2nd, single recurrent layer to generate output sequence:
     m.add_node(LSTM(input_dim=nb_dense_dims,
                     output_dim=nb_dense_dims,
                     activation='tanh',
